@@ -13,7 +13,7 @@ import shutil
 import sys
 
 def usage():
-	print("Usage: %s /source /target [quality (man oggenc, default=8)]" % (sys.argv[0]))
+	print("Usage: %s /source /target [quality (man oggenc, default=8)] [Oggenc params]" % (sys.argv[0]))
 	sys.exit(1)
 
 try:
@@ -21,10 +21,10 @@ try:
 	target=sys.argv[2]
 except:
 	usage()
-try:
-	quality=sys.argv[3]
-except:
-	quality=8
+try: quality=sys.argv[3]
+except: quality=8
+try: params=sys.argv[4]
+except: params=""
 
 
 def handler(lol,old_dir,files):
@@ -47,7 +47,7 @@ def handler(lol,old_dir,files):
 			infile = old_dir + "/" + file
 			outfile = new_dir + "/" + file
 			outfile = outfile.replace('.flac', '.ogg')
-			os.system("oggenc -q %s -o \"%s\" \"%s\"" % (quality, outfile, infile))
+			os.system("oggenc -q %s %s -o \"%s\" \"%s\"" % (quality, params, outfile, infile))
 		else:
 			print("Copying " + file)
 			shutil.copy(old_dir + "/" + file, new_dir + "/" + file)
