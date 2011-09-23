@@ -26,6 +26,10 @@ except: quality=8
 try: params=sys.argv[4]
 except: params=""
 
+#Fix arguments
+for i in range(1,3):
+	if sys.argv[i][len(sys.argv[i])-1] != "/":
+		sys.argv[i]=sys.argv[i]+"/"
 
 def handler(lol,old_dir,files):
 
