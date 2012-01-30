@@ -62,7 +62,7 @@ if __name__ == '__main__':
             output_file=os.path.join(root, name).replace(args.input,args.output,1)
 
             if name.split(".")[-1].lower() == "flac":
-                output_file=output_file.rstrip("flac")+"ogg"
+                output_file=output_file.rpartition(".")[0]+".ogg"
                 commandline="oggenc "
                 commandline+="-Q -q %s " % (args.q)
                 commandline+=args.o
