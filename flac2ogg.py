@@ -20,9 +20,9 @@ import os.path
 parser = argparse.ArgumentParser(description='Convert a directory tree from flac to ogg and copy the rest')
 parser.add_argument('input', action='store', type=str)
 parser.add_argument('output', action='store', type=str)
-parser.add_argument('-t', action='store_true', default=multiprocessing.cpu_count(), help='Number of concurrent processes (default <number of cores>)')
-parser.add_argument('-q', action='store_true', default=8, help='Oggenc quality (default 8)')
-parser.add_argument('-o', action='store_true', default="", help='Oggenc extra options')
+parser.add_argument('-t', action='store', type=int, default=multiprocessing.cpu_count(), help='Number of concurrent processes (default <number of cores>)')
+parser.add_argument('-q', action='store', type=str, default=8, help='Oggenc quality (default 8)')
+parser.add_argument('-o', action='store', type=str, default="", help='Oggenc extra options')
 args=parser.parse_args()
 
 def run_command(commandline):
