@@ -1,55 +1,75 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-'''
-Copy a directory tree and recode all flacs to ogg
-
-Licensed under GPLv2
-Written by Adam Hose <adisbladis@m68k.se>
-'''
-
-import os
-import re
-import shutil
+import argparse
+from multiprocessing import Process
+import multiprocessing
+import subprocess
+import shlex
+import time
 import sys
+import os
+import shutil
+import os.path
 
-def usage():
-	print("Usage: %s /source /target [quality (man oggenc, default=8)] [Oggenc params]" % (sys.argv[0]))
-	sys.exit(1)
+parser = argparse.ArgumentParser(description='Convert a directory tree from flac to ogg and copy the rest')
+parser.add_argument('input', action='store', type=str)
+parser.add_argument('output', action='store', type=str)
+parser.add_argument('-t', action='store_true', default=multiprocessing.cpu_count(), help='Number of concurrent processes (default <number of cores>)')
+parser.add_argument('-q', action='store_true', default=8, help='Oggenc quality (default 8)')
+parser.add_argument('-o', action='store_true', default="", help='Oggenc extra options')
+args=parser.parse_args()
 
-try:
-	source=sys.argv[1]
-	target=sys.argv[2]
-except:
-	usage()
-try: quality=sys.argv[3]
-except: quality=8
-try: params=sys.argv[4]
-except: params=""
+def run_command(commandline):
+    p=subprocess.Popen(shlex.split(commandline),stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE)
+    if p.wait() != 0:
+        sys.stderr.write('ERROR IN: %s\n%s\n\n' % (commandline,p.communicate()[1]))
 
+if __name__ == '__main__':
 
-def handler(lol,old_dir,files):
+    #Sanitize input
+    if args.input[-1] != "/":
+        args.input+="/"
+    if args.output[-1] != "/":
+        args.output+="/"
 
-	new_dir=old_dir
-	new_dir=new_dir.replace(source,target)
+    #Does the new dir exist
+    if(not os.path.isdir(args.output)):
+        os.mkdir(args.output)
 
-	try: os.mkdir(new_dir)
-	except: print(new_dir + " exists, skipping creation")
+    #Create a process pool
+    process_pool=list()
+    for i in range(0,args.t):
+        process_pool.append(Process())
 
-	for file in files:
-		filetype = file.split(".")[-1]
+    #Create a queue for commands to be run
+    commandlines=list()
+    for root, dirs, files in os.walk(args.input):
+        for name in dirs:
+            print("Creating %s" % (name))
+            try: os.mkdir(os.path.join(root, name).replace(args.input,args.output,1))
+            except OSError: pass #Already exists                
 
-		#Try to create if directory
-		if(os.path.isdir(old_dir + "/" + file)):
-			try: os.mkdir(new_dir + "/" + file)
-			except: new_dir + "/" + file + " exists, skipping"
-		elif filetype == "flac" or filetype == "FLAC":
-			print("Recoding " + file)
-			infile = old_dir + "/" + file
-			outfile = new_dir + "/" + file
-			outfile = outfile.replace('.flac', '.ogg')
-			os.system("oggenc -q %s %s -o \"%s\" \"%s\"" % (quality, params, outfile, infile))
-		else:
-			print("Copying " + file)
-			shutil.copy(old_dir + "/" + file, new_dir + "/" + file)
+        #Create directories and copy files
+        for name in files:
 
-os.path.walk(source,handler,"lol")
+            input_file=os.path.join(root, name)
+            output_file=os.path.join(root, name).replace(args.input,args.output,1)
+
+            if name.split(".")[-1].lower() == "flac":
+                commandline="oggenc "
+                commandline+="-Q -q %s " % (args.q)
+                commandline+=args.o
+                commandline+=" -o "+output_file.replace(" ","\ ")+" "+input_file.replace(" ","\ ")
+                commandlines.append(commandline)
+            else:
+                print("Copying %s" % (name))
+                shutil.copy(input_file,output_file)
+
+    #Clear queue
+    while len(commandlines) > 0:
+        for i in range(0,len(process_pool)):
+            if process_pool[i].is_alive() == False:
+                print(str(len(commandlines)) + " files left to encode")
+                process_pool[i] = Process(target=run_command, args=(commandlines.pop(),))
+                process_pool[i].start()
+        time.sleep(0.1)
