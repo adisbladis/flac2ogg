@@ -18,24 +18,23 @@ import shutil
 import os.path
 from pipes import quote
 
-parser = argparse.ArgumentParser(description='Convert a directory tree from flac to ogg and copy the rest')
-parser.add_argument('input', action='store', type=str)
-parser.add_argument('output', action='store', type=str)
-parser.add_argument('-t', action='store', type=int, default=multiprocessing.cpu_count(), help='Number of concurrent processes (default <number of cores>)')
-parser.add_argument('-q', action='store', type=str, default=8, help='Oggenc quality (default 8)')
-parser.add_argument('-o', action='store', type=str, default='', help='Oggenc extra options')
-args=parser.parse_args()
-
 def run_command(commandline):
-
-    #Fix commandline
     p=subprocess.Popen(shlex.split(commandline),stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE)
     if p.wait() != 0:
         sys.stderr.write('ERROR IN: %s\n%s\n\n' % (commandline,p.communicate()[1]))
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Convert a directory tree from flac to ogg and copy the rest')
+    parser.add_argument('input', action='store', type=str, help='<old directory>')
+    parser.add_argument('output', action='store', nargs='?',type=str, default=None, help='<new directory (default == same name as old)>')
+    parser.add_argument('-t', action='store', type=int, default=multiprocessing.cpu_count(), help='Number of concurrent processes (default <number of cores>)')
+    parser.add_argument('-q', action='store', type=str, default=8, help='Oggenc quality (default 8)')
+    parser.add_argument('-o', action='store', type=str, default='', help='Oggenc extra options')
+    args=parser.parse_args()
 
     #Sanitize input
+    if args.output == None:
+        args.output = os.path.basename(args.input.rstrip("/"))
     if args.input[-1] != '/':
         args.input+='/'
     if args.output[-1] != '/':
@@ -60,19 +59,14 @@ if __name__ == '__main__':
 
         #Create directories and copy files
         for name in files:
-
             input_file=os.path.join(root, name)
             output_file=os.path.join(root, name).replace(args.input,args.output,1)
 
-            if name.split('.')[-1].lower() == 'flac':
+            if name.split('.')[-1].lower() in ['wav','aiff','flac','pcm','raw']:
                 output_file=output_file.rpartition('.')[0]+'.ogg'
-                commandline='oggenc '
-                commandline+='-Q -q %s ' % (args.q)
-                commandline+=args.o
-                commandline+=' -o '+quote(output_file)+' '+quote(input_file)
-                commandlines.append(commandline)
+                commandlines.append('oggenc -Q -q %s %s -o %s %s' % (args.q,args.o,quote(output_file),quote(input_file)))
             else:
-                print('Copying %s' % (name))
+                print("Copying %s" % (input_file))
                 shutil.copy(input_file,output_file)
 
     #Clear queue
