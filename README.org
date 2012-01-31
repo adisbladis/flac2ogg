@@ -1,0 +1,11 @@
+* Basic usage
+flac2ogg.py /path/to/music/ /mnt/sdcard/
+This will copy the entire tree under music and recode the supported formats to an ogg file with quality 8 using as many concurrent processes as you have cores
+
+* Implicit directory name
+flac2ogg.py /path/to/album
+This will create a new directory which is the basename of the first argument, in this case album
+
+* Possible arguments
+flac2ogg.py -o "-a Test" -q 10 -t 4 /path/to/music/ /mnt/sdcard/
+This will recode all supported formats, set the artist to test, the quality to 10 and use 4 concurrent processes
