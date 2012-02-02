@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', action='store', type=int, default=multiprocessing.cpu_count(), help='Number of concurrent processes (default <number of cores>)')
     parser.add_argument('-q', action='store', type=str, default=8, help='Oggenc quality (default 8)')
     parser.add_argument('-o', action='store', type=str, default='', help='Oggenc extra options')
+    parser.add_argument('-e', action='append', type=str, default=[], help='Extra file extension to recode')
     args=parser.parse_args()
 
     #Sanitize input
@@ -55,14 +56,17 @@ if __name__ == '__main__':
         for name in dirs:
             print('Creating %s' % (name))
             try: os.mkdir(os.path.join(root, name).replace(args.input,args.output,1))
-            except OSError: pass #Already exists                
+            except OSError: 
+                if(not os.path.isdir(os.path.join(root, name).replace(args.input,args.output,1))):
+                    sys.stderr.write("Could not create %s\n" % (os.path.join(root, name).replace(args.input,args.output,1)))
+                    exit(1)
 
         #Create directories and copy files
         for name in files:
             input_file=os.path.join(root, name)
             output_file=os.path.join(root, name).replace(args.input,args.output,1)
 
-            if name.split('.')[-1].lower() in ['wav','aiff','flac','pcm','raw']:
+            if name.split('.')[-1].lower() in ['wav','aiff','flac','pcm','raw']+args.e:
                 output_file=output_file.rpartition('.')[0]+'.ogg'
                 commandlines.append('oggenc -Q -q %s %s -o %s %s' % (args.q,args.o,quote(output_file),quote(input_file)))
             else:
@@ -70,10 +74,12 @@ if __name__ == '__main__':
                 shutil.copy(input_file,output_file)
 
     #Clear queue
+    total_commands=str(len(commandlines))
     while len(commandlines) > 0:
         for i in range(0,len(process_pool)):
             if process_pool[i].is_alive() == False:
-                print(str(len(commandlines)) + ' files left to encode')
+                sys.stdout.write('\r%s/%s files left to encode' % (str(len(commandlines)),total_commands))
                 process_pool[i] = Process(target=run_command, args=(commandlines.pop(),))
                 process_pool[i].start()
         time.sleep(0.1)
+    print("")
