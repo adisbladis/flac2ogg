@@ -27,6 +27,10 @@ def run_command(cmd):
     if p.wait() != 0:
         sys.stderr.write('ERROR IN: %s\n%s\n\n' % (cmd, p.communicate()[1]))
 
+def clearToWrite(file):
+    # Return true if it's OK to write a file because it doesn't exist or
+    # because the user wants to ignore pre-existing files
+    return args.x or not (os.path.isfile(file) and os.stat(file).st_size > 0)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert directory tree from flac -> ogg')
@@ -36,6 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('-q', action='store', type=str, default=8, help='Oggenc quality (default 8)')
     parser.add_argument('-o', action='store', type=str, default='', help='Oggenc extra options')
     parser.add_argument('-e', action='append', type=str, default=[], help='Extra file extension to recode')
+    parser.add_argument('-x', action='store_true', help='Overwrite non-empty output files')
     args = parser.parse_args()
 
     # Sanitize input
@@ -70,9 +75,12 @@ if __name__ == '__main__':
 
             if name.split('.')[-1].lower() in ['wav', 'aiff', 'flac', 'pcm', 'raw']+args.e:
                 output_file = output_file.rpartition('.')[0] + '.ogg'
-                commandlines.append('oggenc -Q -q %s %s -o %s %s' % (args.q, args.o, quote(output_file), quote(input_file)))
+                # Check for pre-existing file in destination directory
+                if clearToWrite(output_file):
+                    commandlines.append('oggenc -Q -q %s %s -o %s %s' % (args.q, args.o, quote(output_file), quote(input_file)))
             else:
-                shutil.copy(input_file, output_file)
+                if clearToWrite(output_file):
+                    shutil.copy(input_file, output_file)
 
     print('Converting files')
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.t) as e:
