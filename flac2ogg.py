@@ -4,6 +4,7 @@
 Licensed under GPLv3
 
 Written by adis@blad.is
+http://github.com/adisbladis/flac2ogg
 '''
 
 import concurrent.futures
@@ -37,11 +38,16 @@ if __name__ == '__main__':
     parser.add_argument('input', action='store', type=str, help='<old directory>')
     parser.add_argument('output', action='store', nargs='?', type=str, default=None, help='<new directory (default == same name as old)>')
     parser.add_argument('-t', action='store', type=int, default=multiprocessing.cpu_count(), help='Number of concurrent processes (default <number of cores>)')
-    parser.add_argument('-q', action='store', type=str, default=8, help='Oggenc quality (default 8)')
-    parser.add_argument('-o', action='store', type=str, default='', help='Oggenc extra options')
+    parser.add_argument('-q', action='store', type=str, help='Encoding quality (default 8 for oggenc, 2 for lame)')
+    parser.add_argument('-o', action='store', type=str, default='', help='Encoder extra options')
     parser.add_argument('-e', action='append', type=str, default=[], help='Extra file extension to recode')
+    parser.add_argument('-m', action='store_true', help='Encode as mp3 using lame.')
     parser.add_argument('-x', action='store_true', help='Overwrite non-empty output files')
     args = parser.parse_args()
+
+    # Set appropriate default quality if unspecified
+    if not args.q:
+        args.q = 2 if args.m else 8
 
     # Sanitize input
     if args.output is None:
@@ -74,10 +80,13 @@ if __name__ == '__main__':
             output_file = os.path.join(root, name).replace(args.input, args.output, 1)
 
             if name.split('.')[-1].lower() in ['wav', 'aiff', 'flac', 'pcm', 'raw']+args.e:
-                output_file = output_file.rpartition('.')[0] + '.ogg'
+                output_file = output_file.rpartition('.')[0] + '.mp3' if args.m else 'ogg'
                 # Check for pre-existing file in destination directory
                 if clearToWrite(output_file):
-                    commandlines.append('oggenc -Q -q %s %s -o %s %s' % (args.q, args.o, quote(output_file), quote(input_file)))
+                    if (args.m):
+                        commandlines.append('lame --quiet -q %s %s %s %s' % (args.q, args.o, quote(input_file), quote(output_file)))
+                    else:
+                        commandlines.append('oggenc --quiet -q %s %s -o %s %s' % (args.q, args.o, quote(output_file), quote(input_file)))
             else:
                 if clearToWrite(output_file):
                     shutil.copy(input_file, output_file)
